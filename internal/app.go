@@ -1,9 +1,6 @@
 package internal
 
 import (
-	"errors"
-	"image/jpeg"
-	"image/png"
 	"slices"
 	"time"
 
@@ -12,7 +9,6 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
@@ -21,79 +17,45 @@ import (
 	ilayout "github.com/yukkie8058/rollshot/internal/internal/layout"
 )
 
-func ShowMainWindow(a fyne.App, images data.ImageList) {
-	w := a.NewWindow(a.Metadata().Name)
+type editor struct {
+	fyne.Window
+
+	Images data.ImageList
+
+	scroll *container.Scroll
+}
+
+func ShowEditor(a fyne.App, images data.ImageList) {
+	e := &editor{Window: a.NewWindow("Rollshot"), Images: images}
 	g := NewGlobalizer(nil)
 
 	innerPadding := theme.InnerPadding()
 
-	list := newImageList(w, g, images)
-	listVScroll := container.NewVScroll(container.New(
+	e.scroll = container.NewVScroll(container.New(
 		layout.NewCustomPaddedLayout(innerPadding, innerPadding, innerPadding, innerPadding),
-		container.NewBorder(nil, nil, list, nil)),
+		container.NewBorder(nil, nil, newImageList(e, g), nil)),
 	)
 
-	reverse := newDynamicButton("Reverse", theme.ViewRefreshIcon(), func() {
-		v, _ := images.Get()
-		slices.Reverse(v)
-		images.Set(v)
-		list.Refresh()
-	})
-	preview := newDynamicButton("Preview", theme.VisibilityIcon(), func() {
-		cont := canvas.NewImageFromImage(images.Merge())
-		cont.FillMode = canvas.ImageFillContain
-		cont.ScaleMode = canvas.ImageScaleFastest
-		cont.SetMinSize(imageSizeByBounds(cont.Image.Bounds()))
-		dialog.ShowCustom("Preview", "Close", cont, w)
-	})
-	save := newDynamicButton("Save", theme.DocumentSaveIcon(), func() {
-		d := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
-			if err != nil {
-				dialog.ShowError(err, w)
-				return
-			}
-			if writer == nil {
-				return
-			}
-			defer writer.Close()
-			switch writer.URI().Extension() {
-			case ".jpg", ".jpeg":
-				jpeg.Encode(writer, images.Merge(), nil)
-			case ".png":
-				png.Encode(writer, images.Merge())
-			default:
-				dialog.ShowError(errors.New("unsupported format"), w)
-				return
-			}
-			popUp := widget.NewPopUp(&widget.Label{
-				Text:      "Saved successfully",
-				Alignment: fyne.TextAlignCenter,
-				TextStyle: fyne.TextStyle{Bold: true},
-			}, w.Canvas())
-			cs, ps := w.Canvas().Size(), popUp.MinSize()
-			popUp.ShowAtPosition(fyne.NewPos(cs.Width/2, cs.Height/2).SubtractXY(ps.Width/2, ps.Height/2))
-		}, w)
-		d.SetFilter(storage.NewMimeTypeFileFilter([]string{"image/jpeg", "image/png"}))
-		d.SetFileName("image.png")
-		d.Show()
-	})
+	reverse := newDynamicButton("Reverse", theme.ViewRefreshIcon(), e.ReverseImages)
+	preview := newDynamicButton("Preview", theme.VisibilityIcon(), e.ShowImagePreviewDialog)
+	save := newDynamicButton("Save", theme.DocumentSaveIcon(), e.ShowImageSaveDialog)
 	save.Importance = widget.HighImportance
 	bottomRight := container.New(ilayout.NewAlign(ilayout.AlignRight), reverse, preview, save)
 
 	images.AddListener(binding.NewDataListener(func() {
 		if images.Length() > 0 {
-			listVScroll.SetMinSize(fyne.NewSquareSize(listVScroll.Content.MinSize().Width))
+			e.scroll.SetMinSize(fyne.NewSquareSize(e.scroll.Content.MinSize().Width))
 			bottomRight.Show()
 		} else {
-			listVScroll.SetMinSize(listVScroll.Content.MinSize())
+			e.scroll.SetMinSize(e.scroll.Content.MinSize())
 			bottomRight.Hide()
 		}
 	}))
 
-	w.SetOnDropped(func(pos fyne.Position, items []fyne.URI) {
+	e.SetOnDropped(func(pos fyne.Position, items []fyne.URI) {
 		go func() {
 			for _, v := range items {
-				img, closed := tryLoadImage(w, v)
+				img, closed := e.tryLoadImage(v)
 				if img != nil {
 					images.Append(img)
 				}
@@ -106,21 +68,98 @@ func ShowMainWindow(a fyne.App, images data.ImageList) {
 	})
 
 	g.Content = container.New(
-		&mainContentLayout{ilayout.NewCorner(nil, nil, nil, bottomRight), bottomRight, innerPadding},
-		listVScroll, bottomRight,
+		&editorContentLayout{ilayout.NewCorner(nil, nil, nil, bottomRight), bottomRight, innerPadding},
+		e.scroll, bottomRight,
 	)
-	w.SetContent(g)
-	w.Show()
+	e.SetContent(g)
+	e.Show()
 }
 
-type mainContentLayout struct {
+func (e editor) ReverseImages() {
+	v, _ := e.Images.Get()
+	slices.Reverse(v)
+	e.Images.Set(v)
+	e.scroll.Content.Refresh()
+}
+
+func (e editor) ShowImageAddDialog() {
+	e.ShowImageOpenDialog(func(img *data.Image) { e.Images.Append(img) })
+}
+
+func (e editor) ShowImagePreviewDialog() {
+	img := canvas.NewImageFromImage(e.Images.Merge())
+	img.FillMode = canvas.ImageFillContain
+	img.ScaleMode = canvas.ImageScaleFastest
+	img.SetMinSize(imageSizeByBounds(img.Image.Bounds()))
+	d := dialog.NewCustom("Preview", "Close", img, e)
+	d.Show()
+}
+
+func (e editor) ShowImageSaveDialog() {
+	d := dialog.NewFileSave(func(writer fyne.URIWriteCloser, err error) {
+		if err != nil {
+			dialog.ShowError(err, e)
+			return
+		}
+		if writer == nil {
+			return
+		}
+		defer writer.Close()
+		if err := e.Images.Save(writer); err != nil {
+			dialog.ShowError(err, e)
+			return
+		}
+		popUp := widget.NewPopUp(&widget.Label{
+			Text:      "Saved successfully",
+			Alignment: fyne.TextAlignCenter,
+			TextStyle: fyne.TextStyle{Bold: true},
+		}, e.Canvas())
+		cs, ps := e.Canvas().Size(), popUp.MinSize()
+		popUp.ShowAtPosition(fyne.NewPos(cs.Width/2, cs.Height/2).SubtractXY(ps.Width/2, ps.Height/2))
+	}, e)
+	d.SetFilter(storage.NewMimeTypeFileFilter([]string{"image/jpeg", "image/png"}))
+	d.SetFileName("image.png")
+	d.Show()
+}
+
+func (e editor) ShowImageOpenDialog(callback func(img *data.Image)) {
+	d := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
+		if err != nil {
+			dialog.ShowError(err, e)
+			return
+		}
+		if reader == nil {
+			return
+		}
+		defer reader.Close()
+		if img, _ := e.tryLoadImage(reader.URI()); img != nil {
+			callback(img)
+		}
+	}, e)
+	d.SetFilter(storage.NewMimeTypeFileFilter([]string{"image/*"}))
+	d.Show()
+}
+
+func (e editor) tryLoadImage(uri fyne.URI) (image *data.Image, dialogClosed <-chan struct{}) {
+	if img, err := data.LoadImage(uri); err == nil {
+		return img, nil
+	} else {
+		d := dialog.NewError(err, e)
+		closed := make(chan struct{})
+		d.SetOnClosed(func() { close(closed) })
+		d.Show()
+		return nil, closed
+	}
+}
+
+type editorContentLayout struct {
 	corner *ilayout.Corner
 
 	bottomRight *fyne.Container
 	cornerPad   float32
 }
 
-func (l *mainContentLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+func (l *editorContentLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	l.corner.Layout(objects, size)
 
 	for _, obj := range objects {
@@ -130,7 +169,7 @@ func (l *mainContentLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) 
 	}
 }
 
-func (l *mainContentLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+func (l *editorContentLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	size := l.corner.MinSize(objects)
 
 	if !l.bottomRight.Visible() {
@@ -144,16 +183,4 @@ func (l *mainContentLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 		}
 	}
 	return size.AddWidthHeight(buttonWidth, 0)
-}
-
-func tryLoadImage(w fyne.Window, uri fyne.URI) (image *data.Image, dialogClosed <-chan struct{}) {
-	if img, err := data.LoadImage(uri); err == nil {
-		return img, nil
-	} else {
-		d := dialog.NewError(err, w)
-		closed := make(chan struct{})
-		d.SetOnClosed(func() { close(closed) })
-		d.Show()
-		return nil, closed
-	}
 }

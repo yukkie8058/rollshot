@@ -1,9 +1,10 @@
 package data
 
 import (
+	"errors"
 	"image"
-	_ "image/jpeg"
-	_ "image/png"
+	"image/jpeg"
+	"image/png"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/data/binding"
@@ -19,6 +20,19 @@ type ImageList struct {
 
 func NewImageList() ImageList {
 	return ImageList{bindingx.NewTypedList[*Image]()}
+}
+
+var ErrUnsupportedExtension = errors.New("unsupported extension")
+
+func (l ImageList) Save(writer fyne.URIWriteCloser) error {
+	switch writer.URI().Extension() {
+	case ".jpg", ".jpeg":
+		return jpeg.Encode(writer, l.Merge(), nil)
+	case ".png":
+		return png.Encode(writer, l.Merge())
+	default:
+		return ErrUnsupportedExtension
+	}
 }
 
 func (l ImageList) Merge() image.Image {

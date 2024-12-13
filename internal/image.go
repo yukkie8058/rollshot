@@ -8,10 +8,8 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
-	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/fyne-io/glfw-js"
@@ -23,16 +21,14 @@ import (
 type imageList struct {
 	widget.BaseWidget
 
-	Data data.ImageList
+	Editor *editor
 
-	window    fyne.Window
 	container *fyne.Container
 }
 
-func newImageList(w fyne.Window, g *Globalizer, data data.ImageList) *imageList {
+func newImageList(e *editor, g *Globalizer) *imageList {
 	l := &imageList{
-		Data:      data,
-		window:    w,
+		Editor:    e,
 		container: container.New(imageListLayout{layout.NewVBoxLayout()}),
 	}
 	l.ExtendBaseWidget(l)
@@ -41,33 +37,17 @@ func newImageList(w fyne.Window, g *Globalizer, data data.ImageList) *imageList 
 	g.MouseOver.AddListener(listener)
 	g.MousePos.AddListener(listener)
 
-	data.AddListener(binding.NewDataListener(l.Refresh))
+	e.Images.AddListener(binding.NewDataListener(l.Refresh))
 	return l
 }
 
 func (l *imageList) Refresh() {
 	l.container.RemoveAll()
-	val, _ := l.Data.Get()
+	val, _ := l.Editor.Images.Get()
 	for i, v := range val {
 		l.container.Add(newImageItem(l, i, v))
 	}
-	l.container.Add(newImageAddButton(func() {
-		d := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
-			if err != nil {
-				dialog.ShowError(err, l.window)
-				return
-			}
-			if reader == nil {
-				return
-			}
-			defer reader.Close()
-			if img, _ := tryLoadImage(l.window, reader.URI()); img != nil {
-				l.Data.Append(img)
-			}
-		}, l.window)
-		d.SetFilter(storage.NewMimeTypeFileFilter([]string{"image/*"}))
-		d.Show()
-	}))
+	l.container.Add(newImageAddButton(l.Editor.ShowImageAddDialog))
 
 	l.BaseWidget.Refresh()
 }
@@ -144,20 +124,20 @@ func newImageItem(list *imageList, index int, data *data.Image) *imageItem {
 func (i *imageItem) TappedSecondary(e *fyne.PointEvent) {
 	widget.ShowPopUpMenuAtPosition(fyne.NewMenu(i.Data.URI.Name(),
 		&fyne.MenuItem{Icon: theme.MoveUpIcon(), Label: "Move Up", Action: func() {
-			left, _ := i.List.Data.GetValue(i.Index - 1)
-			i.List.Data.SetValue(i.Index, left)
-			i.List.Data.SetValue(i.Index-1, i.Data)
+			left, _ := i.List.Editor.Images.GetValue(i.Index - 1)
+			i.List.Editor.Images.SetValue(i.Index, left)
+			i.List.Editor.Images.SetValue(i.Index-1, i.Data)
 			i.List.Refresh()
 		}, Disabled: i.Index <= 0},
 		&fyne.MenuItem{Icon: theme.MoveDownIcon(), Label: "Move Down", Action: func() {
-			right, _ := i.List.Data.GetValue(i.Index + 1)
-			i.List.Data.SetValue(i.Index, right)
-			i.List.Data.SetValue(i.Index+1, i.Data)
+			right, _ := i.List.Editor.Images.GetValue(i.Index + 1)
+			i.List.Editor.Images.SetValue(i.Index, right)
+			i.List.Editor.Images.SetValue(i.Index+1, i.Data)
 			i.List.Refresh()
-		}, Disabled: i.Index >= i.List.Data.Length()-1},
+		}, Disabled: i.Index >= i.List.Editor.Images.Length()-1},
 		fyne.NewMenuItemSeparator(),
 		&fyne.MenuItem{Icon: theme.DeleteIcon(), Label: "Remove", Action: func() {
-			i.List.Data.Remove(i.Data)
+			i.List.Editor.Images.Remove(i.Data)
 		}},
 	), fyne.CurrentApp().Driver().CanvasForObject(i), e.AbsolutePosition)
 }

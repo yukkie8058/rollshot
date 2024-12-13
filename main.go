@@ -28,6 +28,6 @@ func main() {
 	}
 
 	a := app.New()
-	internal.ShowMainWindow(a, data.NewImageList())
+	internal.ShowEditor(a, data.NewImageList())
 	a.Run()
 }
