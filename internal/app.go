@@ -67,6 +67,33 @@ func ShowEditor(a fyne.App, images data.ImageList) {
 		}()
 	})
 
+	e.SetMainMenu(fyne.NewMainMenu(
+		fyne.NewMenu("File",
+			&fyne.MenuItem{Label: "New", Shortcut: ShortcutNew{}, Action: func() {
+				ShowEditor(a, data.NewImageList())
+			}},
+			&fyne.MenuItem{Label: "Open...", Shortcut: ShortcutOpen{}, Action: func() {
+				e.ShowImageOpenDialog(func(img *data.Image) {
+					l := data.NewImageList()
+					l.Set([]*data.Image{img})
+					ShowEditor(a, l)
+				})
+			}},
+			fyne.NewMenuItemSeparator(),
+			&fyne.MenuItem{Label: "Add...", Action: e.ShowImageAddDialog},
+			fyne.NewMenuItemSeparator(),
+			&fyne.MenuItem{Label: "Preview", Action: e.ShowImagePreviewDialog},
+			&fyne.MenuItem{Label: "Save As...", Shortcut: ShortcutSave{}, Action: e.ShowImageSaveDialog},
+			fyne.NewMenuItemSeparator(),
+			&fyne.MenuItem{Label: "Close", Shortcut: ShortcutClose{}, Action: e.Close},
+		),
+		fyne.NewMenu("Edit",
+			&fyne.MenuItem{Label: "Reverse", Action: e.ReverseImages},
+			fyne.NewMenuItemSeparator(),
+			&fyne.MenuItem{Label: "Clear", Action: func() { images.Set([]*data.Image{}) }},
+		),
+	))
+
 	g.Content = container.New(
 		&editorContentLayout{ilayout.NewCorner(nil, nil, nil, bottomRight), bottomRight, innerPadding},
 		e.scroll, bottomRight,
