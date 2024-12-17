@@ -122,19 +122,25 @@ func newImageItem(list *imageList, index int, data *data.Image) *imageItem {
 }
 
 func (i *imageItem) TappedSecondary(e *fyne.PointEvent) {
+	canMoveUp := i.Index > 0
+	canMoveDown := i.Index < i.List.Editor.Images.Length()-1
 	widget.ShowPopUpMenuAtPosition(fyne.NewMenu(i.Data.URI.Name(),
 		&fyne.MenuItem{Icon: theme.MoveUpIcon(), Label: "Move Up", Action: func() {
-			left, _ := i.List.Editor.Images.GetValue(i.Index - 1)
-			i.List.Editor.Images.SetValue(i.Index, left)
-			i.List.Editor.Images.SetValue(i.Index-1, i.Data)
-			i.List.Refresh()
-		}, Disabled: i.Index <= 0},
+			if canMoveUp {
+				left, _ := i.List.Editor.Images.GetValue(i.Index - 1)
+				i.List.Editor.Images.SetValue(i.Index, left)
+				i.List.Editor.Images.SetValue(i.Index-1, i.Data)
+				i.List.Refresh()
+			}
+		}, Disabled: !canMoveUp},
 		&fyne.MenuItem{Icon: theme.MoveDownIcon(), Label: "Move Down", Action: func() {
-			right, _ := i.List.Editor.Images.GetValue(i.Index + 1)
-			i.List.Editor.Images.SetValue(i.Index, right)
-			i.List.Editor.Images.SetValue(i.Index+1, i.Data)
-			i.List.Refresh()
-		}, Disabled: i.Index >= i.List.Editor.Images.Length()-1},
+			if canMoveDown {
+				right, _ := i.List.Editor.Images.GetValue(i.Index + 1)
+				i.List.Editor.Images.SetValue(i.Index, right)
+				i.List.Editor.Images.SetValue(i.Index+1, i.Data)
+				i.List.Refresh()
+			}
+		}, Disabled: !canMoveDown},
 		fyne.NewMenuItemSeparator(),
 		&fyne.MenuItem{Icon: theme.DeleteIcon(), Label: "Remove", Action: func() {
 			i.List.Editor.Images.Remove(i.Data)
