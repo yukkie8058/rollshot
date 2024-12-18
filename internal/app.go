@@ -82,15 +82,15 @@ func ShowEditor(a fyne.App, images data.ImageList) {
 			fyne.NewMenuItemSeparator(),
 			&fyne.MenuItem{Label: "Add...", Action: e.ShowImageAddDialog},
 			fyne.NewMenuItemSeparator(),
-			&fyne.MenuItem{Label: "Preview", Action: e.ShowImagePreviewDialog},
-			&fyne.MenuItem{Label: "Save As...", Shortcut: ShortcutSave{}, Action: e.ShowImageSaveDialog},
+			e.newImageRequiredMenuItem("Preview", nil, e.ShowImagePreviewDialog),
+			e.newImageRequiredMenuItem("Save As...", ShortcutSave{}, e.ShowImageSaveDialog),
 			fyne.NewMenuItemSeparator(),
 			&fyne.MenuItem{Label: "Close", Shortcut: ShortcutClose{}, Action: e.Close},
 		),
 		fyne.NewMenu("Edit",
-			&fyne.MenuItem{Label: "Reverse", Action: e.ReverseImages},
+			e.newImageRequiredMenuItem("Reverse", nil, e.ReverseImages),
 			fyne.NewMenuItemSeparator(),
-			&fyne.MenuItem{Label: "Clear", Action: func() { images.Set([]*data.Image{}) }},
+			e.newImageRequiredMenuItem("Clear", nil, func() { images.Set([]*data.Image{}) }),
 		),
 	))
 
@@ -177,6 +177,19 @@ func (e editor) tryLoadImage(uri fyne.URI) (image *data.Image, dialogClosed <-ch
 		d.Show()
 		return nil, closed
 	}
+}
+
+func (e editor) newImageRequiredMenuItem(label string, shortcut fyne.Shortcut, action func()) *fyne.MenuItem {
+	m := &fyne.MenuItem{Label: label, Shortcut: shortcut}
+	m.Action = func() {
+		if !m.Disabled {
+			action()
+		}
+	}
+	e.Images.AddListener(binding.NewDataListener(func() {
+		m.Disabled = e.Images.Length() == 0
+	}))
+	return m
 }
 
 type editorContentLayout struct {
