@@ -315,6 +315,11 @@ func (t *imageSliderThumb) Dragged(e *fyne.DragEvent) {
 	s := t.slider
 
 	scaled := int(e.Dragged.DY * float32(s.Image.Data.Image.Bounds().Dy()) / s.Image.Size().Height)
+	drv, ok := fyne.CurrentApp().Driver().(desktop.Driver)
+	if ok && drv.CurrentKeyModifiers()&fyne.KeyModifierShift != 0 {
+		scaled /= 2
+	}
+
 	switch s.Direction {
 	case sliderDirectionDown:
 		val, _ := s.Image.Data.TrimLeading.Get()
