@@ -14,6 +14,12 @@ func (ShortcutOpen) ShortcutName() string  { return "Open" }
 func (ShortcutOpen) Key() fyne.KeyName     { return fyne.KeyO }
 func (ShortcutOpen) Mod() fyne.KeyModifier { return fyne.KeyModifierShortcutDefault }
 
+type ShortcutPreview struct{}
+
+func (ShortcutPreview) ShortcutName() string  { return "Preview" }
+func (ShortcutPreview) Key() fyne.KeyName     { return fyne.KeySpace }
+func (ShortcutPreview) Mod() fyne.KeyModifier { return 0 }
+
 type ShortcutSave struct{}
 
 func (ShortcutSave) ShortcutName() string  { return "Save" }
