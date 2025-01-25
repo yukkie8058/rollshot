@@ -36,6 +36,19 @@ func (b *dynamicButton) MouseOut() {
 	b.Button.MouseOut()
 }
 
+func (b *dynamicButton) FocusGained() {
+	b.Button.SetText(b.Text)
+	b.Button.FocusGained()
+}
+
+func (b *dynamicButton) FocusLost() {
+	b.Button.SetText("")
+	b.Button.FocusLost()
+}
+
+func (b *dynamicButton) TypedRune(r rune)            { b.Button.TypedRune(r) }
+func (b *dynamicButton) TypedKey(key *fyne.KeyEvent) { b.Button.TypedKey(key) }
+
 func (b *dynamicButton) MinSize() fyne.Size {
 	size := b.Button.MinSize()
 	if b.shrinkSize.IsZero() {
