@@ -31,10 +31,25 @@ func ShowEditor(a fyne.App, images data.ImageList) {
 
 	innerPadding := theme.InnerPadding()
 
+	imageList := newImageList(e, g)
 	e.scroll = container.NewVScroll(container.New(
 		layout.NewCustomPaddedLayout(innerPadding, innerPadding, innerPadding, innerPadding),
-		container.NewBorder(nil, nil, newImageList(e, g), nil)),
-	)
+		imageList,
+	))
+
+	//e.Canvas().SetOnTypedKey(func(key *fyne.KeyEvent) {
+	//	switch key.Name {
+	//	case fyne.KeyTab:
+	//		switch focused := e.Canvas().Focused().(fyne.CanvasObject); focused.(type) {
+	//		case *imageSlider, *imageAddButton:
+	//			fy, sy := focused.Position().Y, e.scroll.Position().Y
+	//			if !(sy < fy && fy < sy+e.scroll.Size().Height) {
+	//				e.scroll.Offset = fyne.NewPos(0, fy-sy)
+	//				e.scroll.Refresh()
+	//			}
+	//		}
+	//	}
+	//})
 
 	reverse := newDynamicButton("Reverse", theme.ViewRefreshIcon(), e.ReverseImages)
 	preview := newDynamicButton("Preview", theme.VisibilityIcon(), e.ShowImagePreviewDialog)
@@ -95,7 +110,7 @@ func ShowEditor(a fyne.App, images data.ImageList) {
 	))
 
 	g.Content = container.New(
-		&editorContentLayout{ilayout.NewCorner(nil, nil, nil, bottomRight), bottomRight, innerPadding},
+		&editorContentLayout{ilayout.NewCorner(nil, nil, nil, bottomRight), imageList, bottomRight, innerPadding},
 		e.scroll, bottomRight,
 	)
 	e.SetContent(g)
@@ -195,12 +210,18 @@ func (e editor) newImageRequiredMenuItem(label string, shortcut fyne.Shortcut, a
 type editorContentLayout struct {
 	corner *ilayout.Corner
 
+	imageList   *imageList
 	bottomRight *fyne.Container
 	cornerPad   float32
 }
 
 func (l *editorContentLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	l.corner.Layout(objects, size)
+
+	l.imageList.Resize(fyne.NewSize(
+		size.Width-l.buttonWidth(),
+		size.Height,
+	))
 
 	for _, obj := range objects {
 		if obj == l.bottomRight {
@@ -215,12 +236,16 @@ func (l *editorContentLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	if !l.bottomRight.Visible() {
 		return size
 	}
-	buttonWidth := float32(0)
+	return size.AddWidthHeight(l.buttonWidth(), 0)
+}
+
+func (l *editorContentLayout) buttonWidth() float32 {
+	bw := float32(0)
 	for _, button := range l.bottomRight.Objects {
 		db, ok := button.(*dynamicButton)
-		if ok && db.ShrinkSize().Width > buttonWidth {
-			buttonWidth = db.ShrinkSize().Width
+		if ok {
+			bw = max(bw, db.MinSize().Width)
 		}
 	}
-	return size.AddWidthHeight(buttonWidth, 0)
+	return bw
 }

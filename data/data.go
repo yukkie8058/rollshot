@@ -44,9 +44,7 @@ func (l ImageList) Merge() image.Image {
 
 	w, h := 0, 0
 	for _, v := range images {
-		if v.Bounds().Dx() > w {
-			w = v.Bounds().Dx()
-		}
+		w = max(w, v.Bounds().Dx())
 		h += v.Bounds().Dy()
 	}
 	dst := image.NewRGBA(image.Rect(0, 0, w, h))
@@ -111,11 +109,7 @@ type trim struct {
 func (t trim) Set(val int) error {
 	h := t.image.Image.Bounds().Dy()
 
-	if val < 0 {
-		val = 0
-	} else if val > h {
-		val = h
-	}
+	val = min(max(0, val), h)
 
 	switch t.direction {
 	case trimLeading:

@@ -60,7 +60,7 @@ type ExternalTypedList[T any] interface {
 
 func NewTypedList[T any]() TypedList[T] { return &boundTypedList[T]{binding.NewUntypedList()} }
 func BindTypedList[T any](v *[]T) ExternalTypedList[T] {
-	s := makeAnySlice(*v)
+	s := makeUntypedSlice(*v)
 	return &boundTypedList[T]{binding.BindUntypedList(&s)}
 }
 
@@ -77,7 +77,7 @@ func (l *boundTypedList[T]) Get() ([]T, error) {
 	return tl, err
 }
 func (l *boundTypedList[T]) Set(tl []T) error {
-	return l.UntypedList.Set(makeAnySlice(tl))
+	return l.UntypedList.Set(makeUntypedSlice(tl))
 }
 
 func (l *boundTypedList[T]) GetValue(i int) (T, error) {
@@ -98,7 +98,7 @@ func (l *boundTypedList[T]) Reload() error {
 	return l.UntypedList.(binding.ExternalUntypedList).Reload()
 }
 
-func makeAnySlice[T any](typed []T) []any {
+func makeUntypedSlice[T any](typed []T) []any {
 	ul := make([]any, len(typed))
 	for i, v := range typed {
 		ul[i] = v

@@ -21,6 +21,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+		defer f.Close()
 		if err := pprof.StartCPUProfile(f); err != nil {
 			panic(err)
 		}

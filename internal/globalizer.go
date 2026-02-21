@@ -43,10 +43,12 @@ func GlobalizerForObject(object fyne.CanvasObject) *Globalizer {
 func (g *Globalizer) MouseIn(e *desktop.MouseEvent) {
 	g.MouseOver.Set(true)
 	g.MousePos.Set(e.AbsolutePosition)
+	g.MousePress.Set(e.Button&desktop.MouseButtonPrimary != 0)
 }
 
 func (g *Globalizer) MouseMoved(e *desktop.MouseEvent) {
 	g.MousePos.Set(e.AbsolutePosition)
+	g.MousePress.Set(e.Button&desktop.MouseButtonPrimary != 0)
 }
 
 func (g *Globalizer) MouseOut() {
